@@ -4,6 +4,12 @@ import os
 import time
 import json
 from datetime import datetime
+import urllib.request
+try:
+    ip = urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
+    print(f"IP du serveur : {ip}")
+except:
+    pass
 
 CLE_API_BINANCE = os.environ.get("CLE_API_BINANCE")
 CLE_SECRETE_BINANCE = os.environ.get("CLE_SECRETE_BINANCE")
