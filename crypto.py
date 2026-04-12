@@ -1,5 +1,5 @@
 from binance.client import Client
-import openai
+from openai import OpenAI
 import os
 import time
 import json
@@ -8,14 +8,14 @@ from datetime import datetime
 CLE_API_BINANCE = os.environ.get("CLE_API_BINANCE")
 CLE_SECRETE_BINANCE = os.environ.get("CLE_SECRETE_BINANCE")
 CLE_OPENAI = os.environ.get("CLE_OPENAI")
-client_binance = Client(CLE_API_BINANCE, CLE_SECRETE_BINANCE)
-openai.api_key = CLE_OPENAI
 
-# Gestion du risque
+client_binance = Client(CLE_API_BINANCE, CLE_SECRETE_BINANCE)
+client_openai = OpenAI(api_key=CLE_OPENAI)
+
 BUDGET_PAR_POSITION = 10
-STOP_LOSS_PCT = 0.95       # -5%
-TAKE_PROFIT_PCT = 1.10     # +10%
-TRAILING_STOP_PCT = 0.97   # suit le prix a -3%
+STOP_LOSS_PCT = 0.95
+TAKE_PROFIT_PCT = 1.10
+TRAILING_STOP_PCT = 0.97
 MAX_POSITIONS = 3
 CRYPTOS_BLOQUEES = set()
 
@@ -112,13 +112,13 @@ def acheter(symbole):
             "prix_max_atteint": prix
         }
         sauvegarder_positions()
-        print(f"✓ ACHAT {symbole} : {quantite} a {prix}$")
+        print(f"ACHAT {symbole} : {quantite} a {prix}$")
         print(f"  Stop loss : {positions_ouvertes[symbole]['stop_loss']}$")
         print(f"  Take profit : {positions_ouvertes[symbole]['take_profit']}$")
 
     except Exception as e:
         if "not permitted" in str(e) or "-2010" in str(e):
-            print(f"✗ {symbole} non disponible dans ta region - ajoute a la liste noire")
+            print(f"{symbole} non disponible - ajoute a la liste noire")
             CRYPTOS_BLOQUEES.add(symbole)
         else:
             print(f"Erreur achat {symbole} : {e}")
@@ -132,7 +132,7 @@ def vendre(symbole, raison="Manuel"):
         prix_actuel = get_prix(symbole)
         prix_achat = positions_ouvertes[symbole]["prix_achat"]
         profit = (prix_actuel - prix_achat) / prix_achat * 100
-        print(f"✓ VENTE {symbole} ({raison}) : {profit:+.2f}%")
+        print(f"VENTE {symbole} ({raison}) : {profit:+.2f}%")
         del positions_ouvertes[symbole]
         sauvegarder_positions()
     except Exception as e:
@@ -144,20 +144,16 @@ def gerer_positions():
             prix = get_prix(symbole)
             pos = positions_ouvertes[symbole]
 
-            # Trailing stop loss
             if prix > pos["prix_max_atteint"]:
                 positions_ouvertes[symbole]["prix_max_atteint"] = prix
                 nouveau_stop = round(prix * TRAILING_STOP_PCT, 8)
                 if nouveau_stop > pos["stop_loss"]:
                     positions_ouvertes[symbole]["stop_loss"] = nouveau_stop
-                    print(f"Trailing stop {symbole} mis a jour : {nouveau_stop}$")
+                    print(f"Trailing stop {symbole} : {nouveau_stop}$")
                 sauvegarder_positions()
 
-            # Stop loss
             if prix <= pos["stop_loss"]:
                 vendre(symbole, "STOP LOSS")
-
-            # Take profit
             elif prix >= pos["take_profit"]:
                 vendre(symbole, "TAKE PROFIT")
 
@@ -187,7 +183,7 @@ def analyser_marche():
     afficher_positions()
 
     if len(positions_ouvertes) >= MAX_POSITIONS:
-        print(f"\nMax positions atteint ({MAX_POSITIONS}) - pas de nouveau scan")
+        print(f"\nMax positions atteint - pas de nouveau scan")
         print("Prochaine analyse dans 30 minutes...")
         return
 
@@ -208,7 +204,7 @@ def analyser_marche():
         print("Pas de donnees disponibles")
         return
 
-    reponse = openai.chat.completions.create(
+    reponse = client_openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "user", "content": f"""Tu es un trader crypto expert avec une gestion du risque stricte.
