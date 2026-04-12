@@ -1,0 +1,4 @@
+.env
+positions.json
+historique.json
+__pycache__/
