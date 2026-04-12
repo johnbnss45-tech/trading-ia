@@ -1,5 +1,6 @@
 from binance.client import Client
 import openai
+import os
 import time
 import json
 from datetime import datetime
