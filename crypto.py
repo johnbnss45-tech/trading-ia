@@ -4,9 +4,9 @@ import time
 import json
 from datetime import datetime
 
-CLE_API_BINANCE = "A5t06y5q5Ja4OXMsOsXz4ZyYUXUznFuxyCwoguKUDbYB10bnrjrltb3nyAlvsH3L"
-CLE_SECRETE_BINANCE = "GW1p8ogP0yVpkIEvPbU849vET1BBkMcGhwRbSGjmoJgDyds9GHGClGC99zVrfJ5x"
-CLE_OPENAI = "REMPLACER_PAR_CLE"
+CLE_API_BINANCE = os.environ.get("CLE_API_BINANCE")
+CLE_SECRETE_BINANCE = os.environ.get("CLE_SECRETE_BINANCE")
+CLE_OPENAI = os.environ.get("CLE_OPENAI")
 client_binance = Client(CLE_API_BINANCE, CLE_SECRETE_BINANCE)
 openai.api_key = CLE_OPENAI
 
