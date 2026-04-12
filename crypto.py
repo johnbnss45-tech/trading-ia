@@ -5,6 +5,7 @@ import time
 import json
 from datetime import datetime
 import urllib.request
+
 try:
     ip = urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
     print(f"IP du serveur : {ip}")
@@ -66,13 +67,23 @@ def get_donnees(symbole):
         bougies = client_binance.get_klines(
             symbol=symbole,
             interval=Client.KLINE_INTERVAL_1DAY,
-            limit=14
+            limit=30
         )
         if len(bougies) < 7:
             return None
 
-        prix_2sem = float(bougies[0][4])
+        prix_1mois = float(bougies[0][4])
+        variation_1mois = ((prix - prix_1mois) / prix_1mois) * 100
+
+        prix_2sem = float(bougies[15][4])
         variation_2sem = ((prix - prix_2sem) / prix_2sem) * 100
+
+        prix_1sem = float(bougies[23][4])
+        variation_1sem = ((prix - prix_1sem) / prix_1sem) * 100
+
+        prix_3j = float(bougies[27][4])
+        variation_3j = ((prix - prix_3j) / prix_3j) * 100
+
         prix_max = max(float(b[2]) for b in bougies)
         prix_min = min(float(b[3]) for b in bougies)
 
@@ -80,7 +91,10 @@ def get_donnees(symbole):
             "symbole": symbole,
             "prix": prix,
             "variation_24h": variation_24h,
+            "variation_3j": variation_3j,
+            "variation_1sem": variation_1sem,
             "variation_2sem": variation_2sem,
+            "variation_1mois": variation_1mois,
             "prix_max": prix_max,
             "prix_min": prix_min,
             "volume": volume
@@ -202,7 +216,7 @@ def analyser_marche():
         d = get_donnees(s)
         if d:
             donnees_texte.append(
-                f"{d['symbole']} : Prix={d['prix']:.4f}$ | 24h={d['variation_24h']:+.2f}% | 2sem={d['variation_2sem']:+.2f}% | Vol={d['volume']:.0f}$"
+                f"{d['symbole']} : Prix={d['prix']:.4f}$ | 24h={d['variation_24h']:+.2f}% | 3j={d['variation_3j']:+.2f}% | 1sem={d['variation_1sem']:+.2f}% | 2sem={d['variation_2sem']:+.2f}% | 1mois={d['variation_1mois']:+.2f}% | Vol={d['volume']:.0f}$"
             )
             print(f"{d['symbole']} : {d['prix']:.4f}$ ({d['variation_24h']:+.2f}%)")
 
