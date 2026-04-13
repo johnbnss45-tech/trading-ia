@@ -21,7 +21,7 @@ CLE_OPENAI = os.environ.get("CLE_OPENAI")
 client_binance = Client(CLE_API_BINANCE, CLE_SECRETE_BINANCE)
 client_openai = OpenAI(api_key=CLE_OPENAI)
 
-BUDGET_PAR_POSITION = 10
+BUDGET_PAR_POSITION = 15
 STOP_LOSS_PCT = 0.95
 TAKE_PROFIT_PCT = 1.10
 TRAILING_STOP_PCT = 0.97
@@ -299,7 +299,7 @@ def analyser_marche():
                 meilleur_symbole = s
                 meilleure_raison = raison
 
-    if meilleur_symbole and meilleur_score >= 7:
+    if meilleur_symbole and meilleur_score >= 5:
         print(f"\nMeilleur setup : {meilleur_symbole} ({meilleur_score}/10) | {meilleure_raison}")
         acheter(meilleur_symbole)
     else:
