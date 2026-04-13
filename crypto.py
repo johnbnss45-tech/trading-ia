@@ -299,7 +299,7 @@ def analyser_marche():
                 meilleur_symbole = s
                 meilleure_raison = raison
 
-    if meilleur_symbole and meilleur_score >= 5:
+    if meilleur_symbole and meilleur_score >= 7:
         print(f"\nMeilleur setup : {meilleur_symbole} ({meilleur_score}/10) | {meilleure_raison}")
         acheter(meilleur_symbole)
     else:
