@@ -24,7 +24,7 @@ STOP_LOSS_PCT = 0.95
 TAKE_PROFIT_PCT = 1.10
 TRAILING_STOP_PCT = 0.97
 MAX_POSITIONS = 3
-CRYPTOS_BLOQUEES = set()
+CRYPTOS_BLOQUEES = {"币安人生USDT", "GIGGLEUSDT"}
 
 positions_ouvertes = {}
 
@@ -204,7 +204,7 @@ def analyser_marche():
 
     if len(positions_ouvertes) >= MAX_POSITIONS:
         print(f"\nMax positions atteint - pas de nouveau scan")
-        print("Prochaine analyse dans 30 minutes...")
+        print("Prochaine analyse dans 15 minutes...")
         return
 
     symboles = scanner_opportunites()
@@ -249,7 +249,7 @@ SYMBOLE : ACHETE ou ATTEND | Confiance X/10 | raison courte"""}
             acheter(symbole)
             break
 
-    print("\nProchaine analyse dans 30 minutes...")
+    print("\nProchaine analyse dans 15 minutes...")
 
 charger_positions()
 while True:
