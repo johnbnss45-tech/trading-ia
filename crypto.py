@@ -26,10 +26,11 @@ STOP_LOSS_PCT = 0.95
 TAKE_PROFIT_PCT = 1.10
 TRAILING_STOP_PCT = 0.97
 MAX_POSITIONS = 3
+SCORE_MIN = 7
 CRYPTOS_BLOQUEES_FILE = "bloquees.json"
 
 CRYPTOS_SERIEUSES = {
-    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+    "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
     "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT", "MATICUSDT",
     "LTCUSDT", "UNIUSDT", "ATOMUSDT", "NEARUSDT", "FILUSDT",
     "APTUSDT", "ARBUSDT", "OPUSDT", "INJUSDT", "SEIUSDT",
@@ -183,9 +184,27 @@ def acheter(symbole):
     try:
         prix = get_prix(symbole)
         info = client_binance.get_symbol_info(symbole)
-        step = float([f for f in info['filters'] if f['filterType'] == 'LOT_SIZE'][0]['stepSize'])
+
+        # Vérification LOT_SIZE
+        lot_filter = [f for f in info['filters'] if f['filterType'] == 'LOT_SIZE'][0]
+        step = float(lot_filter['stepSize'])
+        min_qty = float(lot_filter['minQty'])
         precision = len(str(step).rstrip('0').split('.')[-1]) if '.' in str(step) else 0
         quantite = round(BUDGET_PAR_POSITION / prix, precision)
+
+        # Vérification quantité minimum
+        if quantite < min_qty:
+            print(f"{symbole} - quantite {quantite} < minimum {min_qty}, ignore")
+            return
+
+        # Vérification MIN_NOTIONAL
+        notional_filters = [f for f in info['filters'] if f['filterType'] in ('MIN_NOTIONAL', 'NOTIONAL')]
+        if notional_filters:
+            min_notional = float(notional_filters[0].get('minNotional', notional_filters[0].get('minNotional', 0)))
+            valeur_ordre = quantite * prix
+            if valeur_ordre < min_notional:
+                print(f"{symbole} - valeur {valeur_ordre:.2f}$ < minimum {min_notional}$, ignore")
+                return
 
         client_binance.order_market_buy(symbol=symbole, quantity=quantite)
 
@@ -299,7 +318,7 @@ def analyser_marche():
                 meilleur_symbole = s
                 meilleure_raison = raison
 
-    if meilleur_symbole and meilleur_score >= 7:
+    if meilleur_symbole and meilleur_score >= SCORE_MIN:
         print(f"\nMeilleur setup : {meilleur_symbole} ({meilleur_score}/10) | {meilleure_raison}")
         acheter(meilleur_symbole)
     else:
