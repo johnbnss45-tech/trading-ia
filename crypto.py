@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 import time
 import json
+import urllib.parse
 from datetime import datetime
 import urllib.request
 from dotenv import load_dotenv
@@ -17,6 +18,8 @@ except:
 CLE_API_BINANCE = os.environ.get("CLE_API_BINANCE")
 CLE_SECRETE_BINANCE = os.environ.get("CLE_SECRETE_BINANCE")
 CLE_OPENAI = os.environ.get("CLE_OPENAI")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 client_binance = Client(CLE_API_BINANCE, CLE_SECRETE_BINANCE)
 client_openai = OpenAI(api_key=CLE_OPENAI)
@@ -37,6 +40,16 @@ CRYPTOS_SERIEUSES = {
     "SUIUSDT", "TIAUSDT", "FETUSDT", "RENDERUSDT", "STXUSDT",
     "RUNEUSDT", "ONDOUSDT", "AAVEUSDT", "MKRUSDT", "SNXUSDT"
 }
+
+def envoyer_telegram(message):
+    try:
+        if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+            return
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        params = urllib.parse.urlencode({"chat_id": TELEGRAM_CHAT_ID, "text": message})
+        urllib.request.urlopen(f"{url}?{params}")
+    except Exception as e:
+        print(f"Erreur Telegram : {e}")
 
 def charger_bloquees():
     try:
@@ -185,22 +198,22 @@ def acheter(symbole):
         prix = get_prix(symbole)
         info = client_binance.get_symbol_info(symbole)
 
-        # Vérification LOT_SIZE
+        # Verification LOT_SIZE
         lot_filter = [f for f in info['filters'] if f['filterType'] == 'LOT_SIZE'][0]
         step = float(lot_filter['stepSize'])
         min_qty = float(lot_filter['minQty'])
         precision = len(str(step).rstrip('0').split('.')[-1]) if '.' in str(step) else 0
         quantite = round(BUDGET_PAR_POSITION / prix, precision)
 
-        # Vérification quantité minimum
+        # Verification quantite minimum
         if quantite < min_qty:
             print(f"{symbole} - quantite {quantite} < minimum {min_qty}, ignore")
             return
 
-        # Vérification MIN_NOTIONAL
+        # Verification MIN_NOTIONAL
         notional_filters = [f for f in info['filters'] if f['filterType'] in ('MIN_NOTIONAL', 'NOTIONAL')]
         if notional_filters:
-            min_notional = float(notional_filters[0].get('minNotional', notional_filters[0].get('minNotional', 0)))
+            min_notional = float(notional_filters[0].get('minNotional', 0))
             valeur_ordre = quantite * prix
             if valeur_ordre < min_notional:
                 print(f"{symbole} - valeur {valeur_ordre:.2f}$ < minimum {min_notional}$, ignore")
@@ -220,6 +233,14 @@ def acheter(symbole):
         print(f"  Stop loss : {positions_ouvertes[symbole]['stop_loss']}$")
         print(f"  Take profit : {positions_ouvertes[symbole]['take_profit']}$")
 
+        envoyer_telegram(
+            f"🟢 ACHAT {symbole}\n"
+            f"Prix : {prix}$\n"
+            f"Quantite : {quantite}\n"
+            f"Stop Loss : {round(prix * STOP_LOSS_PCT, 8)}$\n"
+            f"Take Profit : {round(prix * TAKE_PROFIT_PCT, 8)}$"
+        )
+
     except Exception as e:
         if "not permitted" in str(e) or "-2010" in str(e) or "-2015" in str(e):
             print(f"{symbole} non disponible - ajoute a la liste noire")
@@ -238,6 +259,13 @@ def vendre(symbole, raison="Manuel"):
         prix_achat = positions_ouvertes[symbole]["prix_achat"]
         profit = (prix_actuel - prix_achat) / prix_achat * 100
         print(f"VENTE {symbole} ({raison}) : {profit:+.2f}%")
+
+        envoyer_telegram(
+            f"🔴 VENTE {symbole}\n"
+            f"Raison : {raison}\n"
+            f"Profit : {profit:+.2f}%"
+        )
+
         del positions_ouvertes[symbole]
         sauvegarder_positions()
     except Exception as e:
@@ -326,6 +354,7 @@ def analyser_marche():
 
     print("\nProchaine analyse dans 15 minutes...")
 
+envoyer_telegram("🤖 Bot de trading démarré !")
 charger_positions()
 while True:
     analyser_marche()
