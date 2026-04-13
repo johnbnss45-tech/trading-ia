@@ -5,6 +5,8 @@ import time
 import json
 from datetime import datetime
 import urllib.request
+from dotenv import load_dotenv
+load_dotenv()
 
 try:
     ip = urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
@@ -24,8 +26,20 @@ STOP_LOSS_PCT = 0.95
 TAKE_PROFIT_PCT = 1.10
 TRAILING_STOP_PCT = 0.97
 MAX_POSITIONS = 3
-CRYPTOS_BLOQUEES = {"币安人生USDT", "GIGGLEUSDT"}
+CRYPTOS_BLOQUEES_FILE = "bloquees.json"
 
+def charger_bloquees():
+    try:
+        with open(CRYPTOS_BLOQUEES_FILE) as f:
+            return set(json.load(f))
+    except:
+        return {"币安人生USDT", "GIGGLEUSDT"}
+
+def sauvegarder_bloquees():
+    with open(CRYPTOS_BLOQUEES_FILE, "w") as f:
+        json.dump(list(CRYPTOS_BLOQUEES), f)
+
+CRYPTOS_BLOQUEES = charger_bloquees()
 positions_ouvertes = {}
 
 def sauvegarder_positions():
@@ -53,6 +67,7 @@ def scanner_opportunites():
         if t['symbol'].endswith('USDT')
         and float(t['quoteVolume']) > 500000
         and float(t['priceChangePercent']) > 0
+        and t['symbol'] not in CRYPTOS_BLOQUEES
     ]
     top = sorted(usdt, key=lambda x: float(x['priceChangePercent']), reverse=True)[:8]
     return [t['symbol'] for t in top]
@@ -137,9 +152,10 @@ def acheter(symbole):
         print(f"  Take profit : {positions_ouvertes[symbole]['take_profit']}$")
 
     except Exception as e:
-        if "not permitted" in str(e) or "-2010" in str(e):
+        if "not permitted" in str(e) or "-2010" in str(e) or "-2015" in str(e):
             print(f"{symbole} non disponible - ajoute a la liste noire")
             CRYPTOS_BLOQUEES.add(symbole)
+            sauvegarder_bloquees()
         else:
             print(f"Erreur achat {symbole} : {e}")
 
