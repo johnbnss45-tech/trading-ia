@@ -254,4 +254,4 @@ SYMBOLE : ACHETE ou ATTEND | Confiance X/10 | raison courte"""}
 charger_positions()
 while True:
     analyser_marche()
-    time.sleep(1800)
+    time.sleep(900)
