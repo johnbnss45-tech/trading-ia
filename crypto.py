@@ -61,10 +61,18 @@ def get_prix(symbole):
 
 def scanner_opportunites():
     print("Scan du marche...")
+    CRYPTOS_AUTORISEES = [
+        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "DOTUSDT", "MATICUSDT",
+        "LINKUSDT", "UNIUSDT", "ATOMUSDT", "LTCUSDT", "ETCUSDT",
+        "XLMUSDT", "ALGOUSDT", "VETUSDT", "FILUSDT", "TRXUSDT",
+        "NEARUSDT", "FTMUSDT", "SANDUSDT", "MANAUSDT", "AAVEUSDT",
+        "GALAUSDT", "AXSUSDT", "CHZUSDT", "ENJUSDT", "ZILUSDT"
+    ]
     tous = client_binance.get_ticker()
     usdt = [
         t for t in tous
-        if t['symbol'].endswith('USDT')
+        if t['symbol'] in CRYPTOS_AUTORISEES
         and float(t['quoteVolume']) > 500000
         and float(t['priceChangePercent']) > 0
         and t['symbol'] not in CRYPTOS_BLOQUEES
