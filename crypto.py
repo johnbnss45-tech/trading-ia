@@ -28,12 +28,21 @@ TRAILING_STOP_PCT = 0.97
 MAX_POSITIONS = 3
 CRYPTOS_BLOQUEES_FILE = "bloquees.json"
 
+CRYPTOS_SERIEUSES = {
+    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+    "ADAUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT", "MATICUSDT",
+    "LTCUSDT", "UNIUSDT", "ATOMUSDT", "NEARUSDT", "FILUSDT",
+    "APTUSDT", "ARBUSDT", "OPUSDT", "INJUSDT", "SEIUSDT",
+    "SUIUSDT", "TIAUSDT", "FETUSDT", "RENDERUSDT", "STXUSDT",
+    "RUNEUSDT", "ONDOUSDT", "AAVEUSDT", "MKRUSDT", "SNXUSDT"
+}
+
 def charger_bloquees():
     try:
         with open(CRYPTOS_BLOQUEES_FILE) as f:
             return set(json.load(f))
     except:
-        return {"币安人生USDT", "GIGGLEUSDT"}
+        return set()
 
 def sauvegarder_bloquees():
     with open(CRYPTOS_BLOQUEES_FILE, "w") as f:
@@ -61,19 +70,11 @@ def get_prix(symbole):
 
 def scanner_opportunites():
     print("Scan du marche...")
-    CRYPTOS_AUTORISEES = [
-        "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
-        "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "DOTUSDT", "MATICUSDT",
-        "LINKUSDT", "UNIUSDT", "ATOMUSDT", "LTCUSDT", "ETCUSDT",
-        "XLMUSDT", "ALGOUSDT", "VETUSDT", "FILUSDT", "TRXUSDT",
-        "NEARUSDT", "FTMUSDT", "SANDUSDT", "MANAUSDT", "AAVEUSDT",
-        "GALAUSDT", "AXSUSDT", "CHZUSDT", "ENJUSDT", "ZILUSDT"
-    ]
     tous = client_binance.get_ticker()
     usdt = [
         t for t in tous
-        if t['symbol'] in CRYPTOS_AUTORISEES
-        and float(t['quoteVolume']) > 500000
+        if t['symbol'] in CRYPTOS_SERIEUSES
+        and float(t['quoteVolume']) > 5000000
         and float(t['priceChangePercent']) > 0
         and t['symbol'] not in CRYPTOS_BLOQUEES
     ]
@@ -124,6 +125,47 @@ def get_donnees(symbole):
         }
     except:
         return None
+
+def scorer_crypto(donnee):
+    prompt = f"""Tu es un modele d'analyse de marche, pas un trader.
+
+Ton role est de donner un score de qualite de setup entre 0 et 10.
+
+Tu recois :
+- Symbole : {donnee['symbole']}
+- Prix : {donnee['prix']}$
+- Variation 24h : {donnee['variation_24h']:+.2f}%
+- Variation 3j : {donnee['variation_3j']:+.2f}%
+- Variation 1sem : {donnee['variation_1sem']:+.2f}%
+- Variation 2sem : {donnee['variation_2sem']:+.2f}%
+- Variation 1mois : {donnee['variation_1mois']:+.2f}%
+- Volume : {donnee['volume']:.0f}$
+
+Tu dois :
+1. Evaluer si le setup est propre (structure, pas deja trop etendu)
+2. Eviter les actifs en pump ou trop volatils
+3. Favoriser les configurations stables et repetables
+4. Donner un score entre 0 et 10
+5. Justifier brievement (1 phrase max)
+
+Important :
+- Tu ne dois JAMAIS dire "acheter" ou "vendre"
+- Tu ne prends AUCUNE decision finale
+- Tu fais uniquement de l'evaluation
+
+Format JSON obligatoire :
+{{"score": X, "reason": "..."}}"""
+
+    try:
+        reponse = client_openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        texte = reponse.choices[0].message.content.strip()
+        texte = texte.replace("```json", "").replace("```", "").strip()
+        return json.loads(texte)
+    except:
+        return {"score": 0, "reason": "erreur parsing"}
 
 def acheter(symbole):
     if symbole in CRYPTOS_BLOQUEES:
@@ -235,43 +277,33 @@ def analyser_marche():
     symboles = [s for s in symboles if s not in positions_ouvertes]
     print(f"\nOpportunites detectees : {symboles}")
 
-    donnees_texte = []
+    if not symboles:
+        print("Aucune opportunite trouvee")
+        print("Prochaine analyse dans 15 minutes...")
+        return
+
+    meilleur_score = 0
+    meilleur_symbole = None
+    meilleure_raison = ""
+
     for s in symboles:
         d = get_donnees(s)
         if d:
-            donnees_texte.append(
-                f"{d['symbole']} : Prix={d['prix']:.4f}$ | 24h={d['variation_24h']:+.2f}% | 3j={d['variation_3j']:+.2f}% | 1sem={d['variation_1sem']:+.2f}% | 2sem={d['variation_2sem']:+.2f}% | 1mois={d['variation_1mois']:+.2f}% | Vol={d['volume']:.0f}$"
-            )
             print(f"{d['symbole']} : {d['prix']:.4f}$ ({d['variation_24h']:+.2f}%)")
+            resultat = scorer_crypto(d)
+            score = resultat.get("score", 0)
+            raison = resultat.get("reason", "")
+            print(f"  Score : {score}/10 | {raison}")
+            if score > meilleur_score:
+                meilleur_score = score
+                meilleur_symbole = s
+                meilleure_raison = raison
 
-    if not donnees_texte:
-        print("Pas de donnees disponibles")
-        return
-
-    reponse = client_openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "user", "content": f"""Tu es un trader crypto expert avec une gestion du risque stricte.
-
-Cryptos disponibles :
-{chr(10).join(donnees_texte)}
-
-Positions ouvertes : {list(positions_ouvertes.keys()) if positions_ouvertes else 'Aucune'}
-Places disponibles : {MAX_POSITIONS - len(positions_ouvertes)}/{MAX_POSITIONS}
-
-Choisis UNE seule crypto a acheter si opportunite reelle, sinon ATTEND.
-Reponds sous ce format :
-SYMBOLE : ACHETE ou ATTEND | Confiance X/10 | raison courte"""}
-        ]
-    )
-
-    resultat = reponse.choices[0].message.content.strip()
-    print(f"\nDecision IA : {resultat}")
-
-    for symbole in symboles:
-        if symbole in resultat and "ACHETE" in resultat.split(symbole)[1].split('\n')[0]:
-            acheter(symbole)
-            break
+    if meilleur_symbole and meilleur_score >= 7:
+        print(f"\nMeilleur setup : {meilleur_symbole} ({meilleur_score}/10) | {meilleure_raison}")
+        acheter(meilleur_symbole)
+    else:
+        print(f"\nAucun setup suffisant (meilleur score : {meilleur_score}/10) - ATTEND")
 
     print("\nProchaine analyse dans 15 minutes...")
 
